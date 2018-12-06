@@ -3,14 +3,15 @@ using UnityEngine;
 
 using Unity.Networking.Transport;
 using Unity.Collections;
+using UnityEngine.Assertions;
 
-using NetworkConnection = Unity.Networking.Transport.NetworkConnection;
 using UdpCNetworkDriver = Unity.Networking.Transport.BasicNetworkDriver<Unity.Networking.Transport.IPv4UDPSocket>;
 
 public class ServerBehaviour : MonoBehaviour
 {
     public UdpCNetworkDriver m_Driver;
     private NativeList<NetworkConnection> m_Connections;
+
     void Start()
     {
         m_Driver = new UdpCNetworkDriver(new INetworkParameter[0]);
@@ -22,11 +23,12 @@ public class ServerBehaviour : MonoBehaviour
         m_Connections = new NativeList<NetworkConnection>(16, Allocator.Persistent);
     }
 
-    void OnDestroy()
+    public void OnDestroy()
     {
         m_Driver.Dispose();
         m_Connections.Dispose();
     }
+
     void Update()
     {
         m_Driver.ScheduleUpdate().Complete();
@@ -53,8 +55,8 @@ public class ServerBehaviour : MonoBehaviour
         DataStreamReader stream;
         for (int i = 0; i < m_Connections.Length; i++)
         {
-            if (m_Connections[i].IsCreated)
-                continue;
+            if (!m_Connections[i].IsCreated)
+                Assert.IsTrue(true);
             NetworkEvent.Type cmd;
             while ((cmd = m_Driver.PopEventForConnection(m_Connections[i], out stream)) != NetworkEvent.Type.Empty)
             {
@@ -66,12 +68,14 @@ public class ServerBehaviour : MonoBehaviour
 
                     number += 2;
 
-                    using(var writer = new DataStreamWriter(4, Allocator.Temp)){
+                    using (var writer = new DataStreamWriter(4, Allocator.Temp))
+                    {
                         writer.Write(number);
                         m_Driver.Send(m_Connections[i], writer);
                     }
                 }
-                else if(cmd == NetworkEvent.Type.Disconnect){
+                else if (cmd == NetworkEvent.Type.Disconnect)
+                {
                     Debug.Log("Client disconnected from server");
                     m_Connections[i] = default(NetworkConnection);
                 }
